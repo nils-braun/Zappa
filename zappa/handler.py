@@ -6,6 +6,7 @@ import collections
 import datetime
 import importlib
 import inspect
+import io
 import json
 import logging
 import os
@@ -161,12 +162,14 @@ class LambdaHandler(object):
             remote_bucket, remote_file = parse_s3_url(project_zip_path)
             s3 = boto_session.resource('s3')
 
-            zip_path = '/tmp/{0!s}'.format(remote_file)
-            s3.Object(remote_bucket, remote_file).download_file(zip_path)
+            zip_path = s3.Object(remote_bucket, remote_file)
 
-            # Unzip contents to project folder
-            with zipfile.ZipFile(zip_path, 'r') as z:
-                z.extractall(path=project_folder)
+            with io.BytesIO() as tf:
+                zip_path.download_fileobj(tf)
+                tf.seek(0) # Rewind the file
+                # Read zip contents and extract them to the project folder
+                with zipfile.ZipFile(tf, 'r') as z:
+                    z.extractall(path=project_folder)
 
         # Add to project path
         sys.path.insert(0, project_folder)
